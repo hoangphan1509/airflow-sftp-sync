@@ -1,0 +1,21 @@
+services:
+  source:
+    image: drakkan/sftpgo:v2.6.6-alpine
+    ports:
+      - 8088:8080
+      - 2028:2022
+    restart: always
+
+  target:
+    # Redis is limited to 7.2-bookworm due to licencing change
+    # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
+    image: drakkan/sftpgo:v2.6.6-alpine
+    ports:
+      - 8089:8080
+      - 2029:2022
+    restart: always
+
+networks:
+  airflow-network:
+    name: cake-airflow-sftp_default
+    external: true
