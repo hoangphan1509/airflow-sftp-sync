@@ -9,6 +9,9 @@ from sftp_utils import mkdir_recursive
 
 logger = logging.getLogger(__name__)
 
+SOURCE_SFTP_CONN_ID = "source-sftp"
+TARGET_SFTP_CONN_ID = "target-sftp"
+
 
 @task
 def get_new_file_list(sftp_conn_id: str) -> list[str]:
@@ -116,9 +119,13 @@ def quality_check(source_conn_id: str, target_conn_id: str, file: str) -> None:
                     else:
                         logger.info(f"Quality check passed for {file}")
                 except OSError as e:
-                    logger.error(f"the server doesn’t support the “check-file” extension, or possibly doesn’t support the hash algorithm requested: {e}")
+                    logger.error(
+                        f"the server doesn’t support the “check-file” extension, or possibly doesn’t support the hash algorithm requested: {e}"
+                    )
                     if source_conn.stat(file).st_size == target_conn.stat(file).st_size:
-                        logger.info(f"File size matches for {file}, quality check passed")
+                        logger.info(
+                            f"File size matches for {file}, quality check passed"
+                        )
                     else:
                         raise ValueError(
                             f"Quality check failed for {file}: file sizes do not match"
@@ -126,21 +133,23 @@ def quality_check(source_conn_id: str, target_conn_id: str, file: str) -> None:
 
 
 @dag(
-    schedule=None,
+    schedule="*/10 * * * *",
     start_date=datetime(2022, 1, 1),
     catchup=False,
     tags=["sftp"],
 )
 def sftp_sync():
-    new_files = get_new_file_list("source-sftp")
+    new_files = get_new_file_list(SOURCE_SFTP_CONN_ID)
     sync_task = sync_file.expand(
-        source_conn_id=["source-sftp"],
-        target_conn_id=["target-sftp"],
+        source_conn_id=[SOURCE_SFTP_CONN_ID],
+        target_conn_id=[TARGET_SFTP_CONN_ID],
         file_path=new_files,
     )
 
     quality_check_task = quality_check.expand(
-        source_conn_id=["source-sftp"], target_conn_id=["target-sftp"], file=new_files
+        source_conn_id=[SOURCE_SFTP_CONN_ID],
+        target_conn_id=[TARGET_SFTP_CONN_ID],
+        file=new_files,
     )
     new_files >> sync_task >> quality_check_task
 
